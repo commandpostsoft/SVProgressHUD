@@ -110,8 +110,10 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
                     UIWindowScene *windowScene = (UIWindowScene *)scene;
                     if ([windowScene.delegate conformsToProtocol:@protocol(UIWindowSceneDelegate)]) {
                         id<UIWindowSceneDelegate> sceneDelegate = (id<UIWindowSceneDelegate>)windowScene.delegate;
-                        mainWindow = sceneDelegate.window;
-                        *stop = YES;
+                        if (sceneDelegate.window) {
+                            mainWindow = sceneDelegate.window;
+                            *stop = YES;
+                        }
                     }
                 }
             }];
@@ -764,7 +766,7 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
 
 - (void)showProgress:(float)progress status:(NSString*)status {
     __weak SVProgressHUD *weakSelf = self;
-    void (^block)(void) = ^void(){
+    void (^block)(void) = ^{
         __strong SVProgressHUD *strongSelf = weakSelf;
         if(strongSelf){
             if(strongSelf.fadeOutTimer) {
@@ -838,9 +840,9 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
 #endif
         }
     };
-    if([NSThread isMainThread]) {
+    if ([NSThread isMainThread]) {
         block();
-    }else {
+    } else {
         [[NSOperationQueue mainQueue] addOperationWithBlock:block];
     }
 }
@@ -1362,7 +1364,7 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
     UIWindow *keyboardWindow = nil;
  
     // First, try to find the keyboard window in all connected scenes
-    if (@available(iOS 13.0, *)) {
+    if (@available(iOS 13.0, tvOS 13.0, *)) {
         for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
             // only handle UIWindowScene
             if ([scene isKindOfClass:[UIWindowScene class]]) {
@@ -1415,7 +1417,7 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
 - (UIWindow *)frontWindow {
 #if !defined(SV_APP_EXTENSIONS)
     // For iOS 13 and later, we first find the active scene.
-    if (@available(iOS 13.0, *)) {
+    if (@available(iOS 13.0, tvOS 13.0, *)) {
         for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
             if (scene.activationState == UISceneActivationStateForegroundActive) {
                 if ([scene isKindOfClass:[UIWindowScene class]]) {
