@@ -107,15 +107,20 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
         if (@available(iOS 13.0, tvOS 13.0, *)) {
             [sharedApplication.connectedScenes enumerateObjectsUsingBlock:^(UIScene *scene, BOOL *stop) {
                 if ([scene isKindOfClass:UIWindowScene.class] && [scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication]) {
-                    if ([scene.delegate respondsToSelector:@selector(window)]) {
-                        mainWindow = [scene.delegate performSelector:@selector(window)];
+                    UIWindowScene *windowScene = (UIWindowScene *)scene;
+                    if ([windowScene.delegate conformsToProtocol:@protocol(UIWindowSceneDelegate)]) {
+                        id<UIWindowSceneDelegate> sceneDelegate = (id<UIWindowSceneDelegate>)windowScene.delegate;
+                        mainWindow = sceneDelegate.window;
                         *stop = YES;
                     }
                 }
             }];
         }
-        if (!mainWindow && [sharedApplication.delegate respondsToSelector:@selector(window)]) {
-            mainWindow = [sharedApplication.delegate performSelector:@selector(window)];
+        if (!mainWindow) {
+            id<UIApplicationDelegate> appDelegate = sharedApplication.delegate;
+            if ([appDelegate respondsToSelector:@selector(window)]) {
+                mainWindow = appDelegate.window;
+            }
         }
     }
     return mainWindow;
@@ -329,14 +334,20 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
 #pragma mark - Dismiss Methods
 
 + (void)popActivity {
-    [[NSOperationQueue mainQueue] addOperationWithBlock:^{
+    void (^block)(void) = ^{
         if([self sharedView].activityCount > 0) {
             [self sharedView].activityCount--;
         }
         if([self sharedView].activityCount == 0) {
             [[self sharedView] dismiss];
         }
-    }];
+    };
+
+    if ([NSThread isMainThread]) {
+        block();
+    } else {
+        [[NSOperationQueue mainQueue] addOperationWithBlock:block];
+    }
 }
 
 + (void)dismiss {
@@ -548,7 +559,7 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
         } else {
 #if !defined(SV_APP_EXTENSIONS)
             UIWindow *window = self.frontWindow;
-            if (window.rootViewController) {
+            if (window && window.rootViewController) {
                 [window addSubview:self.controlView];
             }
 #else
@@ -814,8 +825,8 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
             }
             
             // Fade in delayed if a grace time is set
-            if (self.graceTimeInterval > 0.0 && self.backgroundView.alpha == 0.0f) {
-                strongSelf.graceTimer = [NSTimer timerWithTimeInterval:self.graceTimeInterval target:strongSelf selector:@selector(fadeIn:) userInfo:nil repeats:NO];
+            if (strongSelf.graceTimeInterval > 0.0 && strongSelf.backgroundView.alpha == 0.0f) {
+                strongSelf.graceTimer = [NSTimer timerWithTimeInterval:strongSelf.graceTimeInterval target:strongSelf selector:@selector(fadeIn:) userInfo:nil repeats:NO];
                 [[NSRunLoop mainRunLoop] addTimer:strongSelf.graceTimer forMode:NSRunLoopCommonModes];
             } else {
                 [strongSelf fadeIn:nil];
@@ -852,7 +863,7 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
             [strongSelf cancelIndefiniteAnimatedViewAnimation];
             
             // Update imageView
-            if (self.shouldTintImages) {
+            if (strongSelf.shouldTintImages) {
                 if (image.renderingMode != UIImageRenderingModeAlwaysTemplate) {
                     strongSelf.imageView.image = [image imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
                 } else {
@@ -870,8 +881,8 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
             
             // Fade in delayed if a grace time is set
             // An image will be dismissed automatically. Thus pass the duration as userInfo.
-            if (self.graceTimeInterval > 0.0 && self.backgroundView.alpha == 0.0f) {
-                strongSelf.graceTimer = [NSTimer timerWithTimeInterval:self.graceTimeInterval target:strongSelf selector:@selector(fadeIn:) userInfo:@(duration) repeats:NO];
+            if (strongSelf.graceTimeInterval > 0.0 && strongSelf.backgroundView.alpha == 0.0f) {
+                strongSelf.graceTimer = [NSTimer timerWithTimeInterval:strongSelf.graceTimeInterval target:strongSelf selector:@selector(fadeIn:) userInfo:@(duration) repeats:NO];
                 [[NSRunLoop mainRunLoop] addTimer:strongSelf.graceTimer forMode:NSRunLoopCommonModes];
             } else {
                 [strongSelf fadeIn:@(duration)];
@@ -1008,7 +1019,7 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
             __block void (^completionBlock)(void) = ^{
                 // Check if we really achieved to dismiss the HUD (<=> alpha values are applied)
                 // and the change of these values has not been cancelled in between e.g. due to a new show
-                if(self.backgroundView.alpha == 0.0f){
+                if(strongSelf.backgroundView.alpha == 0.0f){
                     // Clean up view hierarchy (overlays)
                     [strongSelf.controlView removeFromSuperview];
                     [strongSelf.backgroundView removeFromSuperview];
