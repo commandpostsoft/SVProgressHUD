@@ -525,7 +525,10 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
             [self.containerView addSubview:self.controlView];
         } else {
 #if !defined(SV_APP_EXTENSIONS)
-            [self.frontWindow addSubview:self.controlView];
+            UIWindow *window = self.frontWindow;
+            if (window.rootViewController) {
+                [window addSubview:self.controlView];
+            }
 #else
             // If SVProgressHUD is used inside an app extension add it to the given view
             if(self.viewForExtension) {
@@ -1001,7 +1004,9 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
                     // Tell the rootViewController to update the StatusBar appearance
 #if !defined(SV_APP_EXTENSIONS) && TARGET_OS_IOS
                     UIViewController *rootController = [SVProgressHUD mainWindow].rootViewController;
-                    [rootController setNeedsStatusBarAppearanceUpdate];
+                    if (rootController) {
+                        [rootController setNeedsStatusBarAppearanceUpdate];
+                    }
 #endif
                     
                     // Run an (optional) completionHandler
