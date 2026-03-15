@@ -82,7 +82,7 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
     __block UIWindow *mainWindow = nil;
     if (@available(iOS 13.0, tvOS 13.0, *)) {
         [sharedApplication.connectedScenes enumerateObjectsUsingBlock:^(UIScene *scene, BOOL *stop1) {
-            if (scene.activationState == UISceneActivationStateForegroundActive && [scene isKindOfClass:UIWindowScene.class]) {
+            if (scene.activationState == UISceneActivationStateForegroundActive && [scene isKindOfClass:UIWindowScene.class] && [scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication]) {
                 UIWindowScene *windowScene = (UIWindowScene *)scene;
                 [windowScene.windows enumerateObjectsUsingBlock:^(UIWindow *window, NSUInteger idx, BOOL *stop2) {
                     if (window.isKeyWindow && !window.isHidden) {
@@ -93,6 +93,20 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
                 }];
             }
         }];
+		if (!mainWindow) {
+			[sharedApplication.connectedScenes enumerateObjectsUsingBlock:^(UIScene *scene, BOOL *stop1) {
+	            if (scene.activationState == UISceneActivationStateForegroundActive && [scene isKindOfClass:UIWindowScene.class]) {
+	                UIWindowScene *windowScene = (UIWindowScene *)scene;
+	                [windowScene.windows enumerateObjectsUsingBlock:^(UIWindow *window, NSUInteger idx, BOOL *stop2) {
+	                    if (window.isKeyWindow && !window.isHidden) {
+	                        mainWindow = window;
+	                        *stop1 = YES;
+	                        *stop2 = YES;
+	                    }
+	                }];
+	            }
+	        }];
+		}
     }
     if (!mainWindow) {
         [sharedApplication.windows enumerateObjectsUsingBlock:^(UIWindow *window, NSUInteger idx, BOOL *stop) {
@@ -1419,6 +1433,20 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
     // For iOS 13 and later, we first find the active scene.
     if (@available(iOS 13.0, tvOS 13.0, *)) {
         for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
+            if (scene.activationState == UISceneActivationStateForegroundActive && [scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication]) {
+                if ([scene isKindOfClass:[UIWindowScene class]]) {
+                    UIWindowScene *windowScene = (UIWindowScene *)scene;
+                    for (UIWindow *window in windowScene.windows) {
+                        // The isKeyWindow property is often a reliable way to find the main window,
+                        // but we also check other properties for robustness.
+                        if (window.isKeyWindow && window.alpha > 0) {
+                            return window;
+                        }
+                    }
+                }
+            }
+        }
+		for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
             if (scene.activationState == UISceneActivationStateForegroundActive) {
                 if ([scene isKindOfClass:[UIWindowScene class]]) {
                     UIWindowScene *windowScene = (UIWindowScene *)scene;
