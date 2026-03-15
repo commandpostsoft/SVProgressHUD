@@ -1381,7 +1381,7 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
     if (@available(iOS 13.0, tvOS 13.0, *)) {
         for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
             // only handle UIWindowScene
-            if ([scene isKindOfClass:[UIWindowScene class]]) {
+            if ([scene isKindOfClass:[UIWindowScene class]] && [scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication]) {
                 for (UIWindow *testWindow in ((UIWindowScene *)scene).windows) {
                     if(![testWindow.class isEqual:UIWindow.class]) {
                         keyboardWindow = testWindow;
@@ -1393,6 +1393,22 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
                 break;
             }
         }
+		if (keyboardWindow == nil) {
+			for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
+	            // only handle UIWindowScene
+	            if ([scene isKindOfClass:[UIWindowScene class]]) {
+	                for (UIWindow *testWindow in ((UIWindowScene *)scene).windows) {
+	                    if(![testWindow.class isEqual:UIWindow.class]) {
+	                        keyboardWindow = testWindow;
+	                        break;
+	                    }
+	                }
+	            }
+	            if (keyboardWindow != nil) {
+	                break;
+	            }
+	        }
+		}
     }
  
     // Fallback to the old method if not iOS 13+ or if no window is found in a multi-scene environment
