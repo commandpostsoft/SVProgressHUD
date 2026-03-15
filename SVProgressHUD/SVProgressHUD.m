@@ -82,7 +82,7 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
     __block UIWindow *mainWindow = nil;
     if (@available(iOS 13.0, tvOS 13.0, *)) {
         [sharedApplication.connectedScenes enumerateObjectsUsingBlock:^(UIScene *scene, BOOL *stop1) {
-            if (scene.activationState == UISceneActivationStateForegroundActive && [scene isKindOfClass:UIWindowScene.class]) {
+            if (scene.activationState == UISceneActivationStateForegroundActive && [scene isKindOfClass:UIWindowScene.class] && [scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication]) {
                 UIWindowScene *windowScene = (UIWindowScene *)scene;
                 [windowScene.windows enumerateObjectsUsingBlock:^(UIWindow *window, NSUInteger idx, BOOL *stop2) {
                     if (window.isKeyWindow && !window.isHidden) {
@@ -93,6 +93,20 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
                 }];
             }
         }];
+		if (!mainWindow) {
+			[sharedApplication.connectedScenes enumerateObjectsUsingBlock:^(UIScene *scene, BOOL *stop1) {
+	            if (scene.activationState == UISceneActivationStateForegroundActive && [scene isKindOfClass:UIWindowScene.class]) {
+	                UIWindowScene *windowScene = (UIWindowScene *)scene;
+	                [windowScene.windows enumerateObjectsUsingBlock:^(UIWindow *window, NSUInteger idx, BOOL *stop2) {
+	                    if (window.isKeyWindow && !window.isHidden) {
+	                        mainWindow = window;
+	                        *stop1 = YES;
+	                        *stop2 = YES;
+	                    }
+	                }];
+	            }
+	        }];
+		}
     }
     if (!mainWindow) {
         [sharedApplication.windows enumerateObjectsUsingBlock:^(UIWindow *window, NSUInteger idx, BOOL *stop) {
@@ -135,11 +149,12 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
 #else
      NSBundle *bundle = [NSBundle bundleForClass:[SVProgressHUD class]];
 #endif
-     NSURL *url = [bundle URLForResource:@"SVProgressHUD" withExtension:@"bundle"];
+     /*NSURL *url = [bundle URLForResource:@"SVProgressHUD" withExtension:@"bundle"];
      if (!url) {
          return nil;
      }
-     return [NSBundle bundleWithURL:url];
+     return [NSBundle bundleWithURL:url];*/
+	 return bundle;
  }
 
 #pragma mark - Setters
@@ -554,9 +569,8 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
 
 - (void)updateViewHierarchy {
     // Add the overlay to the application window if necessary
-    if(!self.controlView.superview) {
-        // Check if containerView is set and still in the view hierarchy
-        if(self.containerView && self.containerView.window){
+    if (!self.controlView.superview) {
+        if (self.containerView && self.containerView.window) {
             [self.containerView addSubview:self.controlView];
         } else {
 #if !defined(SV_APP_EXTENSIONS)
@@ -566,7 +580,7 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
             }
 #else
             // If SVProgressHUD is used inside an app extension add it to the given view
-            if(self.viewForExtension) {
+            if (self.viewForExtension) {
                 [self.viewForExtension addSubview:self.controlView];
             }
 #endif
@@ -766,7 +780,7 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
 
 - (void)showProgress:(float)progress status:(NSString*)status {
     __weak SVProgressHUD *weakSelf = self;
-    void (^block)(void) = ^{
+    [[NSOperationQueue mainQueue] addOperationWithBlock:^{
         __strong SVProgressHUD *strongSelf = weakSelf;
         if(strongSelf){
             if(strongSelf.fadeOutTimer) {
@@ -839,12 +853,7 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
             [strongSelf.hapticGenerator prepare];
 #endif
         }
-    };
-    if ([NSThread isMainThread]) {
-        block();
-    } else {
-        [[NSOperationQueue mainQueue] addOperationWithBlock:block];
-    }
+    }];
 }
 
 - (void)showImage:(UIImage*)image status:(NSString*)status duration:(NSTimeInterval)duration {
@@ -1367,7 +1376,7 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
     if (@available(iOS 13.0, tvOS 13.0, *)) {
         for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
             // only handle UIWindowScene
-            if ([scene isKindOfClass:[UIWindowScene class]]) {
+            if ([scene isKindOfClass:[UIWindowScene class]] && [scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication]) {
                 for (UIWindow *testWindow in ((UIWindowScene *)scene).windows) {
                     if(![testWindow.class isEqual:UIWindow.class]) {
                         keyboardWindow = testWindow;
@@ -1379,6 +1388,22 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
                 break;
             }
         }
+		if (keyboardWindow == nil) {
+			for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
+	            // only handle UIWindowScene
+	            if ([scene isKindOfClass:[UIWindowScene class]]) {
+	                for (UIWindow *testWindow in ((UIWindowScene *)scene).windows) {
+	                    if(![testWindow.class isEqual:UIWindow.class]) {
+	                        keyboardWindow = testWindow;
+	                        break;
+	                    }
+	                }
+	            }
+	            if (keyboardWindow != nil) {
+	                break;
+	            }
+	        }
+		}
     }
  
     // Fallback to the old method if not iOS 13+ or if no window is found in a multi-scene environment
@@ -1419,6 +1444,20 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
     // For iOS 13 and later, we first find the active scene.
     if (@available(iOS 13.0, tvOS 13.0, *)) {
         for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
+            if (scene.activationState == UISceneActivationStateForegroundActive && [scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication]) {
+                if ([scene isKindOfClass:[UIWindowScene class]]) {
+                    UIWindowScene *windowScene = (UIWindowScene *)scene;
+                    for (UIWindow *window in windowScene.windows) {
+                        // The isKeyWindow property is often a reliable way to find the main window,
+                        // but we also check other properties for robustness.
+                        if (window.isKeyWindow && window.alpha > 0) {
+                            return window;
+                        }
+                    }
+                }
+            }
+        }
+		for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
             if (scene.activationState == UISceneActivationStateForegroundActive) {
                 if ([scene isKindOfClass:[UIWindowScene class]]) {
                     UIWindowScene *windowScene = (UIWindowScene *)scene;
