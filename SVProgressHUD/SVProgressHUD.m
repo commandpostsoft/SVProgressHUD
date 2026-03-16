@@ -1389,8 +1389,9 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
     // First, try to find the keyboard window in all connected scenes
     if (@available(iOS 13.0, tvOS 13.0, *)) {
         for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
-            // only handle UIWindowScene
-            if ([scene isKindOfClass:[UIWindowScene class]]) {
+            // only handle UIWindowScene for application role
+            if ([scene isKindOfClass:[UIWindowScene class]] &&
+                [scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication]) {
                 for (UIWindow *testWindow in ((UIWindowScene *)scene).windows) {
                     if(![testWindow.class isEqual:UIWindow.class]) {
                         keyboardWindow = testWindow;
@@ -1442,15 +1443,13 @@ static const CGFloat SVProgressHUDLabelSpacing = 8.0f;
     // For iOS 13 and later, we first find the active scene.
     if (@available(iOS 13.0, tvOS 13.0, *)) {
         for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
-            if (scene.activationState == UISceneActivationStateForegroundActive) {
-                if ([scene isKindOfClass:[UIWindowScene class]]) {
-                    UIWindowScene *windowScene = (UIWindowScene *)scene;
-                    for (UIWindow *window in windowScene.windows) {
-                        // The isKeyWindow property is often a reliable way to find the main window,
-                        // but we also check other properties for robustness.
-                        if (window.isKeyWindow && window.alpha > 0) {
-                            return window;
-                        }
+            if (scene.activationState == UISceneActivationStateForegroundActive &&
+                [scene isKindOfClass:[UIWindowScene class]] &&
+                [scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication]) {
+                UIWindowScene *windowScene = (UIWindowScene *)scene;
+                for (UIWindow *window in windowScene.windows) {
+                    if (window.isKeyWindow && window.alpha > 0) {
+                        return window;
                     }
                 }
             }
